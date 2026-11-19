@@ -1,0 +1,225 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default-Deny Catch-All)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Primitives
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isOwner(uid) {
+      return isVerifiedUser() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'mustafaischoolpakistan@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'email', 'company', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 180
+        && (!data.keys().hasAny(['company']) || (data.company is string && data.company.size() <= 120))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidServiceName(serviceName) {
+      return serviceName in [
+        'Website Design & Development',
+        'SEO & Content Strategy',
+        'Social Media Management',
+        'Branding & Creative Design',
+        'Performance Marketing',
+        'Multiple Services / Strategy'
+      ];
+    }
+
+    function isValidEnquiry(data) {
+      return data.keys().hasAll([
+          'ownerId', 'fullName', 'email', 'businessName',
+          'serviceType', 'details', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'fullName', 'email', 'businessName',
+          'serviceType', 'details', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.ownerId)
+        && data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 120
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 180
+        && data.businessName is string && data.businessName.size() <= 120
+        && data.serviceType is string && data.serviceType.size() <= 80 && isValidServiceName(data.serviceType)
+        && data.details is string && data.details.size() >= 10 && data.details.size() <= 3000
+        && data.status is string && data.status.size() <= 24 && data.status in ['submitted', 'in_review', 'archived']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidChatSession(data) {
+      return data.keys().hasAll(['ownerId', 'title', 'mode', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['ownerId', 'title', 'mode', 'createdAt', 'updatedAt'])
+        && isValidId(data.ownerId)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 120
+        && data.mode is string && data.mode.size() <= 16 && data.mode in ['fast', 'deep']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidChatMessage(data) {
+      return data.keys().hasAll(['ownerId', 'role', 'content', 'model', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'role', 'content', 'model', 'createdAt'])
+        && isValidId(data.ownerId)
+        && data.role is string && data.role.size() <= 16 && data.role in ['user', 'assistant']
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 12000
+        && data.model is string && data.model.size() >= 1 && data.model.size() <= 80
+        && data.createdAt is timestamp;
+    }
+
+    // 4. Collection Rules
+    match /admins/{uid} {
+      allow get: if isSignedIn() && isValidId(uid) && request.auth.uid == uid;
+      allow list, create, update, delete: if false;
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isValidUserProfile(incoming())
+        && (isOwner(userId) || isAdmin())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'company', 'updatedAt']);
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    match /enquiries/{enquiryId} {
+      allow get: if isValidId(enquiryId)
+        && isVerifiedUser()
+        && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isVerifiedUser()
+        && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(enquiryId)
+        && isVerifiedUser()
+        && isValidEnquiry(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().status == 'submitted'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(enquiryId)
+        && isVerifiedUser()
+        && isValidEnquiry(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (
+            existing().ownerId == request.auth.uid
+            && existing().status != 'archived'
+            && (
+              (
+                incoming().status == existing().status
+                && incoming().diff(existing()).affectedKeys().hasOnly(['businessName', 'serviceType', 'details', 'updatedAt'])
+              ) ||
+              (
+                incoming().status == 'archived'
+                && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+              )
+            )
+          )
+        );
+      allow delete: if isValidId(enquiryId)
+        && isVerifiedUser()
+        && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+
+    match /chatSessions/{sessionId} {
+      allow get: if isValidId(sessionId)
+        && isVerifiedUser()
+        && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isVerifiedUser()
+        && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow create: if isValidId(sessionId)
+        && isVerifiedUser()
+        && isValidChatSession(incoming())
+        && incoming().ownerId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(sessionId)
+        && isVerifiedUser()
+        && isValidChatSession(incoming())
+        && (existing().ownerId == request.auth.uid || isAdmin())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'mode', 'updatedAt']);
+      allow delete: if isValidId(sessionId)
+        && isVerifiedUser()
+        && (existing().ownerId == request.auth.uid || isAdmin());
+
+      match /messages/{messageId} {
+        allow get: if isValidId(sessionId)
+          && isValidId(messageId)
+          && isVerifiedUser()
+          && (
+            get(/databases/$(database)/documents/chatSessions/$(sessionId)).data.ownerId == request.auth.uid
+            || isAdmin()
+          );
+        allow list: if isValidId(sessionId)
+          && isVerifiedUser()
+          && (resource.data.ownerId == request.auth.uid || isAdmin());
+        allow create: if isValidId(sessionId)
+          && isValidId(messageId)
+          && isVerifiedUser()
+          && isValidChatMessage(incoming())
+          && incoming().ownerId == request.auth.uid
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/chatSessions/$(sessionId))
+          && get(/databases/$(database)/documents/chatSessions/$(sessionId)).data.ownerId == request.auth.uid;
+        allow update: if false;
+        allow delete: if isValidId(sessionId)
+          && isValidId(messageId)
+          && isVerifiedUser()
+          && (
+            get(/databases/$(database)/documents/chatSessions/$(sessionId)).data.ownerId == request.auth.uid
+            || isAdmin()
+          );
+      }
+    }
+  }
+}

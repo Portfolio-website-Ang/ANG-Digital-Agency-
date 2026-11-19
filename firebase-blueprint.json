@@ -1,0 +1,262 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated client or agency team member profile.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Authentication UID."
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Full display name of the user."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 180,
+          "description": "Verified account email address."
+        },
+        "company": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120,
+          "description": "Optional business or organization name."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": ["uid", "displayName", "email", "createdAt", "updatedAt"]
+    },
+    "ProjectEnquiry": {
+      "title": "ProjectEnquiry",
+      "description": "Digital agency project enquiry submitted by a signed-in client.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the user who submitted the enquiry."
+        },
+        "fullName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120,
+          "description": "Contact person full name."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 180,
+          "description": "Business email address."
+        },
+        "businessName": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120,
+          "description": "Optional company or brand name."
+        },
+        "serviceType": {
+          "type": "string",
+          "enum": [
+            "Website Design & Development",
+            "SEO & Content Strategy",
+            "Social Media Management",
+            "Branding & Creative Design",
+            "Performance Marketing",
+            "Multiple Services / Strategy"
+          ],
+          "maxLength": 80,
+          "description": "Requested digital agency service."
+        },
+        "details": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 3000,
+          "description": "Project goals, challenges, and timeline."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["submitted", "in_review", "archived"],
+          "maxLength": 24,
+          "description": "Enquiry workflow state."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "ownerId",
+        "fullName",
+        "email",
+        "businessName",
+        "serviceType",
+        "details",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "Persisted multi-turn strategy consultation thread.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the session owner."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Summary title of the strategy session."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["fast", "deep"],
+          "maxLength": 16,
+          "description": "Active Gemini reasoning mode."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": ["ownerId", "title", "mode", "createdAt", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Single message inside a persisted strategy chat session.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the session owner."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "assistant"],
+          "maxLength": 16,
+          "description": "Message author role."
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12000,
+          "description": "Message text content."
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Model identifier used for this turn."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        }
+      },
+      "required": ["ownerId", "role", "content", "model", "createdAt"]
+    },
+    "NewsletterSubscription": {
+      "title": "NewsletterSubscription",
+      "description": "Industry insights newsletter subscription linked to a verified user account.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the subscribed user."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 180,
+          "description": "Email address subscribed to ANG Digital Agency insights."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["subscribed", "unsubscribed"],
+          "maxLength": 24,
+          "description": "Newsletter subscription status."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": ["ownerId", "email", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private authenticated user profile documents isolated by UID."
+    },
+    "/enquiries/{enquiryId}": {
+      "schema": { "$ref": "#/entities/ProjectEnquiry" },
+      "description": "Client project enquiries scoped to ownerId or agency admin."
+    },
+    "/chatSessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/ChatSession" },
+      "description": "Strategy assistant chat sessions owned by authenticated users."
+    },
+    "/chatSessions/{sessionId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Messages belonging to a strategy assistant chat session."
+    },
+    "/newsletterSubscriptions/{userId}": {
+      "schema": { "$ref": "#/entities/NewsletterSubscription" },
+      "description": "Private newsletter subscription records isolated by UID."
+    }
+  }
+}
